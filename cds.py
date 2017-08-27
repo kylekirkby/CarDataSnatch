@@ -60,16 +60,22 @@ class SnatchCarData:
         return(TermColours.OKCYAN + message + TermColours.ENDC)
 
     def setup_parser(self):
-        self.parser.add_argument("-r", "--reg", dest="registration", help="The valid registration of a UK vehicle.", required=True)
-        self.parser.add_argument("-a", "--all", dest="all", help="Get all data from the car.")
-        self.parser.add_argument("-m", "--make", dest="make", help="Output the make of the car.", action="store_true")
-        self.parser.add_argument("-i", "--image", dest="image", help="Download an image of the car.", action="store_true")
-        self.parser.add_argument("-iS", "--imageShow", dest="show_image", help="Download and open the image of the car.", action="store_true")
-        self.parser.add_argument("-iF", "--imageFilename", dest="image_file_name", help="Specify the output file name for car image.")
-        self.parser.add_argument("-http", "--httpProxy", dest="http_proxy", help="Supply a http proxy to scrape data.")
-        self.parser.add_argument("-https", "--httpsProxy", dest="https_proxy", help="Supply a https proxy to scrape data.")
-        self.parser.add_argument("-v", "--verbose", dest="verbose", help="Clearer output of what is happening.", action="store_true")
-        self.parser.add_argument("-d", "--destination", dest="destination_folder", help="Supply a destination folder to output to.")
+        required_arguments_group = self.parser.add_argument_group('Required Arguments')
+        required_arguments_group.add_argument("-r", "--reg", dest="registration", help="The valid registration of a UK vehicle.", required=True)
+
+        optional_arguments_group = self.parser.add_argument_group('Optional Arguments (1 Required)')
+        optional_arguments_group.add_argument("-a", "--all", dest="all", help="Get all data from the car.")
+        optional_arguments_group.add_argument("-m", "--make", dest="make", help="Output the make of the car.", action="store_true")
+        optional_arguments_group.add_argument("-i", "--image", dest="image", help="Download an image of the car.", action="store_true")
+        optional_arguments_group.add_argument("-iS", "--imageShow", dest="show_image", help="Download and open the image of the car.", action="store_true")
+
+        flag_arguments_group = self.parser.add_argument_group('Flag Arguments')
+        flag_arguments_group.add_argument("-iF", "--imageFilename", dest="image_file_name", help="Specify the output file name for car image.")
+        flag_arguments_group.add_argument("-http", "--httpProxy", dest="http_proxy", help="Supply a http proxy to scrape data.")
+        flag_arguments_group.add_argument("-https", "--httpsProxy", dest="https_proxy", help="Supply a https proxy to scrape data.")
+        flag_arguments_group.add_argument("-v", "--verbose", dest="verbose", help="Clearer output of what is happening.", action="store_true")
+        flag_arguments_group.add_argument("-d", "--destination", dest="destination_folder", help="Supply a destination folder to output to.")
+
     def set_arg_defaults(self):
         if self.args.image_file_name:
             self.vehicle_image_file_name = self.args.image_file_name
@@ -87,10 +93,12 @@ class SnatchCarData:
         payload={"vrm":numberplate}
         session = req.session()
         if len(self.proxies.keys()) > 0:
-            print(self.output_ok_green("Proxie(s) ENABLED..."))
-            for key,value in self.proxies.items():
-                print(self.output_ok_blue("Using {0} proxy: {1}".format(key.upper(),value)))
+            if self.verbose:
+                print(self.output_ok_green("Proxie(s) ENABLED..."))
+                for key,value in self.proxies.items():
+                    print(self.output_ok_blue("Using {0} proxy: {1}".format(key.upper(),value)))
             r = session.post(url, data=payload, proxies=self.proxies)
+
             if self.verbose:
                 for header,value in r.headers.items():
                     print(self.output_ok_cyan(header) + " : " + self.output_ok_green(value))
@@ -130,12 +138,15 @@ class SnatchCarData:
     def show_car_image(self):
         self.download_car_image()
         im1 = Image.open(self.vehicle_image_file_name)
-        im2 = Image.open("not_found.png")
+        im2 = Image.open("res/not_found.png")
         diff = ImageChops.difference(im2, im1)
         if diff.getbbox() != None:
+            if self.verbose:
+                print(self.output_ok_blue("Opening image..."))
             p = subprocess.Popen(["open",self.vehicle_image_file_name])
+            if self.verbose:
+                print(self.output_ok_green("Image opened!"))
         else:
-            print("opening")
             class NoImageFound(Exception):
                 pass
             raise NoImageFound("Sorry no image was found.")
@@ -154,15 +165,20 @@ class SnatchCarData:
                         if self.verbose:
                             print(self.output_ok_blue("Finding image..."))
                         found = self.download_car_image()
-                        if self.verbose:
-                            if found:
-                                print(self.output_ok_green("SUCCESS: Found image and saved as {0}".format(self.vehicle_image_file_name)))
+                        if found:
+                            if self.verbose:
+                                print(self.output_ok_green("SUCCESS: Found image and saved as {0}".format(os.getcwd() + "/" + self.destination_folder + self.vehicle_image_file_name)))
                             else:
+                                print(os.getcwd() + "/" + self.destination_folder + self.vehicle_image_file_name)
+                        else:
+                            if self.verbose:
                                 print(self.output_warning("FAIL: Failed to find image.{0}".format(self.vehicle_image_file_name)))
+                            else:
+                                print("Image not found")
                 elif self.args.all:
-                    pass
+                    self.show_composite_list_data()
             else:
-                self.show_composite_list_data()
+                self.parser.error('Please supply an option argurent e.g -a for all data. --help for more info.')
 
         except Exception as e:
             print("ERROR: ", e)
