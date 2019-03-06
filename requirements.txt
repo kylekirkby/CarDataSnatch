@@ -8,7 +8,7 @@ Pillow == 4.1.1
 bs4 == 0.0.1
 
 # cds.py: 3
-requests == 2.18.1
+requests == 2.20.0
 
 # cds.py: 7
 tabulate == 0.7.7
